@@ -1,0 +1,35 @@
+FROM alpine:latest
+LABEL maintainer="herveberaud.pro@gmail.com"
+
+ENV PACKAGER="Sebastien Boyron <sebastien@boyron.eu>" \
+    USERNAME="packager"
+
+RUN apk update && apk --no-cache add \
+    alpine-sdk shadow
+
+RUN adduser -S $USERNAME
+RUN echo "$USERNAME:$USERNAME" | chpasswd 
+RUN echo "$USERNAME     ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers
+RUN echo 'PACKAGER="$PACKAGER"' > /etc/abuild.conf
+
+RUN usermod -g abuild $USERNAME
+
+RUN mkdir -p /var/cache/distfiles
+RUN chmod a+w /var/cache/distfiles
+RUN chgrp abuild /var/cache/distfiles 
+RUN chmod g+w /var/cache/distfiles
+
+USER $USERNAME
+WORKDIR /home/packager/package
+
+RUN sudo chown $USERNAME:abuild /home/packager/package
+RUN printf '\n' | abuild-keygen -a -i
+
+COPY APKBUILD .
+COPY ld.so.conf .
+COPY nsswitch.conf .
+COPY glibc-bin.tar.gz .
+COPY glibc-bin.trigger .
+
+RUN abuild -f
+CMD sleep 30
